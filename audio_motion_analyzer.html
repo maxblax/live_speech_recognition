@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+
+<style>
+body {
+  font: 13px sans-serif;
+  margin: 0;
+}
+
+label {
+  background: #f0f0f0;
+  border: 1px solid #999;
+  border-radius: 5px;
+  cursor: pointer;
+  display: inline-block;
+  margin: 5px 0 0 10px;
+  padding: 5px 20px;
+}
+
+label input {
+  display: none;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+}
+
+.info {
+  display: inline-block;
+  float: right;
+  margin: 10px 20px 0;
+}
+</style>
+</head>
+<body>
+<script type="module">
+/**
+ * for documentation and more demos,
+ * visit https://audiomotion.dev
+ */
+
+/**
+ * for documentation and more demos,
+ * visit https://audiomotion.dev
+ */
+
+// load module from Skypack CDN
+import AudioMotionAnalyzer from 'https://cdn.skypack.dev/audiomotion-analyzer?min';
+
+// instantiate analyzer
+const audioMotion = new AudioMotionAnalyzer(
+  document.getElementById('container'),
+  {
+    gradient: 'rainbow',
+    height: window.innerHeight - 40,
+    showScaleY: true,
+
+  }
+);
+var constraints = {
+    audio: {
+        sampleRate: 16000,
+        channelCount: 1,
+        volume: 1.0
+    },
+    video: False
+    }
+
+if ( navigator.mediaDevices ) {
+  navigator.mediaDevices.getUserMedia( constraints )
+    .then( stream => {
+    // create stream using audioMotion audio context
+    const micStream = audioMotion.audioCtx.createMediaStreamSource( stream );
+    // connect microphone stream to analyzer
+    audioMotion.connectInput( micStream );
+    // mute output to prevent feedback loops from the speakers
+    audioMotion.volume = 0;
+  })
+    .catch( err => {
+    alert('Microphone access denied by user');
+  });
+}
+else {
+  alert('User mediaDevices not available');
+}
+</script>
+
+<!-- analyzer container -->
+<div id="container"></div>
+<!--&lt;!&ndash; on/off button &ndash;&gt;-->
+<!--<label>-->
+<!--  <input type="checkbox" id="mic">-->
+<!--  🎤 ON/OFF-->
+<!--</label>-->
+</body>
+</html>
