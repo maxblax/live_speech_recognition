@@ -34,12 +34,17 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s - %(filename)s:%(lineno)
 logger.setLevel(level=logging.DEBUG)
 
 CLOSURE_STRING = [".", "!", "?"]
-ONGOING_STATEMENT = ["..."]
+ONGOING_STRING = ["..."]
 
 def main():
     st.header("Interactive Multilingual Speech-Recognition")
     #load_html_component_from_file('audio_motion_analyzer.html')
-    app_sst()
+    try:
+        app_sst()
+    except :
+        logger.error(traceback.format_exc())
+        pass
+
 
 
 def whisper_stt(buf: BytesIO, model):
@@ -77,19 +82,24 @@ def app_sst():
         mode=WebRtcMode.SENDONLY,
         audio_receiver_size=1024,
         rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-        # media_stream_constraints={"video": False, "audio": True},
-        media_stream_constraints=constraints,
+        media_stream_constraints={"video": False, "audio": True},
+        # media_stream_constraints=constraints,
     )
+    logger.debug("@Heere webrtc_ctx loaded")
 
     if not webrtc_ctx.state.playing:
         logger.debug('State is not playing, I m done in app_sst')
         return
 
     text_output = st.empty()
-    sound_chunk = pydub.AudioSegment.empty()
+    agg_audio_segments = pydub.AudioSegment.empty()
     sample_width = None
     text = ""
+    b1_audio_segments = []
+    last_nbr_stable_audio_segments=0
+    last_stable_text = ""
     while True:
+        logger.debug("-----------------Hello")
         if webrtc_ctx.audio_receiver:
             try:
                 audio_frames = webrtc_ctx.audio_receiver.get_frames(timeout=1)
@@ -111,35 +121,60 @@ def app_sst():
                 logger.debug("type audio_frame.to_ndarray().tobytes(): %s"% type(audio_frame.to_ndarray().tobytes()))
                 logger.debug("audio_frame.samples: %s"% audio_frame.samples)
                 logger.debug("audio_frame.layout: %s" % audio_frame.layout)
+                logger.debug("audio_frame.to_ndarray(): %s" % audio_frame.to_ndarray())
 
             # For each frame of the array
             for audio_frame in audio_frames:
                 # Get raw bytes and store in buffer
                 # buffer_audio += audio_frame.to_ndarray().tobytes()
-                sound = pydub.AudioSegment(
+                audio_segment = pydub.AudioSegment(
                     data=audio_frame.to_ndarray().tobytes(),
                     sample_width=audio_frame.format.bytes,
                     frame_rate=audio_frame.sample_rate,
                     channels=len(audio_frame.layout.channels),
                 )
-                sound_chunk += sound
+                agg_audio_segments += audio_segment
+                b1_audio_segments.append(audio_segment)
 
             logger.info("============================= duration: %d"
-                        "" % (sound_chunk. duration_seconds))
-            if sound_chunk.duration_seconds >= 1:
+                        "" % (agg_audio_segments. duration_seconds))
+            if agg_audio_segments.duration_seconds >= 1:
                 f = BytesIO()
-                sound_chunk.export(f, format='wav')
+                agg_audio_segments.export(f, format='wav')
                 f.seek(0)
                 c_text, language = whisper_stt(f, model)
+
+                if not c_text.endswith(ONGOING_STRING) \
+                    and c_text.endswith(CLOSURE_STRING):
+                    # Stacking the last stable text
+                    text += last_stable_text
+                    # Removing the first (heading) part of this stable string
+                    c_text = c_text.replace(last_stable_text, "", 1)
+                    # Loosing the head of the audio Segment array, proportionally to the last stable occurrence
+                    b1_audio_segments = b1_audio_segments[last_nbr_stable_audio_segments:]
+                    # Now the current buffer is the new stable version
+                    last_nbr_stable_audio_segments = len(b1_audio_segments)
+                    # And the current text is the 'new' last stable one.
+                    last_stable_text = c_text
+
+                    # Now we just need to rebuild the agg_audio_segment
+                    # Cause pydub.AudioSegment doesn't implement __sub__
+                    agg_audio_segments = pydub.AudioSegment.empty()
+                    for audio_segment in b1_audio_segments:
+                        agg_audio_segments += audio_segment
+
+                # We display the text
                 text_output.markdown(f"**Text:** {text} \n\n {c_text}")
-                # Dirty for now
-                if sound_chunk.duration_seconds > 10:
-                    sound_chunk = pydub.AudioSegment.empty()
+
+                # In the event of no closing string being detected, we have to flush before reaching 30sec
+                if b1_audio_segment.duration_seconds > 25:
+                    b1_audio_segment = pydub.AudioSegment.empty()
+                    agg_audio_segments = pydub.AudioSegment.empty()
                     text += c_text
-                    c_text = ""
         else:
             status_indicator.write("AudioReceiver is not set. Abort.")
             break
+        time.sleep(0.1)
 
 
 def app_sst_with_video(
