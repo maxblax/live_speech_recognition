@@ -43,11 +43,6 @@ canvas {
  * visit https://audiomotion.dev
  */
 
-/**
- * for documentation and more demos,
- * visit https://audiomotion.dev
- */
-
 // load module from Skypack CDN
 import AudioMotionAnalyzer from 'https://cdn.skypack.dev/audiomotion-analyzer?min';
 
@@ -57,44 +52,47 @@ const audioMotion = new AudioMotionAnalyzer(
   {
     gradient: 'rainbow',
     height: window.innerHeight - 40,
-    showScaleY: true,
-
+    showScaleY: true
   }
 );
-var constraints = {
-    audio: {
-        sampleRate: 16000,
-        channelCount: 1,
-        volume: 1.0
-    },
-    video: False
-    }
+// toggle microphone on/off
+const micButton = document.getElementById('mic');
 
-if ( navigator.mediaDevices ) {
-  navigator.mediaDevices.getUserMedia( constraints )
-    .then( stream => {
-    // create stream using audioMotion audio context
-    const micStream = audioMotion.audioCtx.createMediaStreamSource( stream );
-    // connect microphone stream to analyzer
-    audioMotion.connectInput( micStream );
-    // mute output to prevent feedback loops from the speakers
-    audioMotion.volume = 0;
-  })
-    .catch( err => {
-    alert('Microphone access denied by user');
-  });
-}
-else {
-  alert('User mediaDevices not available');
-}
+micButton.addEventListener( 'change', () => {
+  if ( micButton.checked ) {
+    if ( navigator.mediaDevices ) {
+      navigator.mediaDevices.getUserMedia( { audio: true, video: false } )
+      .then( stream => {
+        // create stream using audioMotion audio context
+        const micStream = audioMotion.audioCtx.createMediaStreamSource( stream );
+        // connect microphone stream to analyzer
+        audioMotion.connectInput( micStream );
+        // mute output to prevent feedback loops from the speakers
+        audioMotion.volume = 0;
+      })
+      .catch( err => {
+        alert('Microphone access denied by user');
+      });
+    }
+    else {
+      alert('User mediaDevices not available');
+    }
+  }
+  else {
+    // disconnect all input audio sources
+    audioMotion.disconnectInput();
+  }
+});
+
+
 </script>
 
 <!-- analyzer container -->
 <div id="container"></div>
-<!--&lt;!&ndash; on/off button &ndash;&gt;-->
-<!--<label>-->
-<!--  <input type="checkbox" id="mic">-->
-<!--  🎤 ON/OFF-->
-<!--</label>-->
+<!-- on/off button -->
+<label>
+  <input type="checkbox" id="mic">
+  🎤 ON/OFF
+</label>
 </body>
 </html>

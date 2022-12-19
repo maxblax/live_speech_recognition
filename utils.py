@@ -42,7 +42,7 @@ def load_audio(file: (str, bytes), sr: int = 16000):
     return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
 
 
-def load_html_component_from_file(html_filepath, width=700, height=400):
+def load_html_component_from_file(html_filepath, width=600, height=500):
     file = codecs.open(html_filepath)
     page = file.read()
     components.html(page, width=width, height=height, scrolling=False)
